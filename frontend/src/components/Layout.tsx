@@ -120,19 +120,26 @@ export function Layout() {
         ))}
       </nav>
 
-      {/* Decorative footer (matches the design: monuments line-art + motto + quote) */}
-      <div className="px-4 pb-5 pt-2 text-center">
-        <img src="/assets/sidebar/heritage-illustration.svg" alt="" className="mx-auto w-full max-w-[210px]"
-          style={{ mixBlendMode: "lighten" }} />
-        <div className="mt-1 text-[12px] font-semibold leading-tight text-white/85">
+      {/* Official Government Initiative Trust Card */}
+      <div className="mx-3.5 mb-4 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-center shadow-xs">
+        <img
+          src="/assets/sidebar/heritage-illustration.svg"
+          alt="India Gate Architectural Line Art"
+          className="mx-auto w-full max-w-[180px] opacity-90 transition-opacity"
+        />
+        <div className="mt-2 text-[11px] font-semibold tracking-wide text-white/90">
           Transparent Procurement<br />Stronger India
         </div>
-        <div className="mx-auto my-2.5 h-2 w-16 rounded-full"
-          style={{ background: "linear-gradient(90deg,#FF9933,#ffffff,#138808)", clipPath: "polygon(0 40%,100% 0,100% 60%,0 100%)" }} />
-        <p className="text-[11px] italic leading-snug text-white/55">
-          “Good governance<br />builds a stronger nation.”
+        <div
+          className="mx-auto my-2 h-1.5 w-12 rounded-full"
+          style={{ background: "linear-gradient(90deg, #FF9933 0%, #FFFFFF 50%, #138808 100%)" }}
+        />
+        <p className="text-[10.5px] italic leading-tight text-white/60">
+          “Good governance builds a stronger nation.”
         </p>
-        <p className="mt-0.5 text-[10px] text-white/45">— Government of India</p>
+        <p className="mt-0.5 text-[9.5px] font-medium text-white/40 tracking-wider">
+          — Government of India
+        </p>
       </div>
     </div>
   );

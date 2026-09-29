@@ -103,16 +103,31 @@ export function OverviewPage() {
                 <Link to={`/analyses/${id}/standards`} className="text-xs font-medium text-primary hover:underline">View Details →</Link>
               </div>
               {!categories?.length ? <EmptyState>No coverage computed.</EmptyState> : (
-                <div className="space-y-2.5">
+                <div className="space-y-3.5">
                   {categories.map((c) => {
-                    const p = c.total ? Math.round((c.full + c.partial * 0.6) / c.total * 100) : 0;
+                    const p = c.total ? Math.round(((c.full + c.partial * 0.6) / c.total) * 100) : 0;
+                    const formattedCat = c.category.replace(/_/g, " ").toLowerCase();
                     return (
-                      <div key={c.category} className="flex items-center gap-3">
-                        <span className="w-24 flex-none text-xs capitalize text-ink">{c.category.toLowerCase()}</span>
-                        <div className="h-2 flex-1 overflow-hidden rounded-full bg-panel">
-                          <div className={`h-full rounded-full ${p >= 90 ? "bg-success" : "bg-warning"}`} style={{ width: `${p}%` }} />
+                      <div key={c.category} className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-medium capitalize text-ink">
+                            {formattedCat}
+                          </span>
+                          <span className="font-semibold tabular-nums text-muted">
+                            <span className="text-ink">{p}%</span>
+                            <span className="ml-1.5 text-[11px] font-normal text-muted/70">
+                              ({c.full + c.partial}/{c.total} covered)
+                            </span>
+                          </span>
                         </div>
-                        <span className="w-9 flex-none text-right text-xs font-semibold tabular-nums text-ink">{p}%</span>
+                        <div className="h-2 w-full overflow-hidden rounded-full bg-panel">
+                          <div
+                            className={`h-full rounded-full transition-all duration-300 ${
+                              p >= 90 ? "bg-success" : p >= 50 ? "bg-warning" : "bg-danger"
+                            }`}
+                            style={{ width: `${p}%` }}
+                          />
+                        </div>
                       </div>
                     );
                   })}

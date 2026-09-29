@@ -46,7 +46,7 @@ def _gather(db: Session, analysis_id: str) -> dict:
         .order_by(Recommendation.requirement_id, Recommendation.final_rank)).scalars().all()
     std_by_id = {s.id: s for s in db.execute(select(Standard)).scalars()}
     decisions = {}
-    review = db.execute(select(Review).where(Review.analysis_id == analysis_id)).scalar_one_or_none()
+    review = db.execute(select(Review).where(Review.analysis_id == analysis_id).order_by(Review.created_at)).scalars().first()
     if review:
         for d in db.execute(select(ReviewDecision).where(ReviewDecision.review_id == review.id)).scalars():
             decisions[(d.target_type, d.target_id)] = d

@@ -184,9 +184,33 @@ export function useDecide(analysisId: string) {
   return useMutation({
     mutationFn: async (payload: { target_type: string; target_id: string; decision: string; reason?: string }) =>
       (await api.post(`/analyses/${analysisId}/reviews/decisions`, payload)).data,
-    onSuccess: () => {
+    onMutate: async (payload) => {
+      await qc.cancelQueries({ queryKey: ["recommendations", analysisId] });
+      const statusMap: Record<string, string> = {
+        ACCEPT: "ACCEPTED",
+        REJECT: "REJECTED",
+        MARK_FOR_REVIEW: "REVIEW",
+      };
+      const newStatus = statusMap[payload.decision];
+      if (newStatus) {
+        qc.setQueriesData<Recommendation[]>({ queryKey: ["recommendations", analysisId] }, (old) => {
+          if (!old) return old;
+          if (payload.target_type === "standard") {
+            return old.map((r) => r.standard.id === payload.target_id ? { ...r, review_status: newStatus } : r);
+          } else if (payload.target_type === "recommendation") {
+            return old.map((r) => r.id === payload.target_id ? { ...r, review_status: newStatus } : r);
+          }
+          return old;
+        });
+      }
+    },
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: ["decisions", analysisId] });
       qc.invalidateQueries({ queryKey: ["recommendations", analysisId] });
+      qc.invalidateQueries({ queryKey: ["readiness", analysisId] });
+      qc.invalidateQueries({ queryKey: ["coverage", analysisId] });
+      qc.invalidateQueries({ queryKey: ["analysis", analysisId] });
+      qc.invalidateQueries({ queryKey: ["analyses"] });
     },
   });
 }

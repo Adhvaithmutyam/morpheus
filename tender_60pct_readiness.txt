@@ -1,0 +1,12 @@
+TECHNICAL SPECIFICATION FOR CENTRIFUGAL WATER PUMPING UNIT
+
+1.0 SCOPE AND OPERATING CONDITIONS
+3.1 The centrifugal pump shall deliver water with minimum operating pressure of 10 bar.
+3.2 All pumps shall be tested for performance as per IS 1520 : 2007.
+
+2.0 ELECTRICAL MOTOR DRIVER
+3.3 The motor shall be a three phase induction motor rated for 415 V, 50 Hz power supply.
+
+3.0 MATERIAL AND QUALITY REQUIREMENTS
+3.4 The pump casing shall be constructed of cast iron.
+3.5 The equipment shall carry valid ISI mark and BIS certification.

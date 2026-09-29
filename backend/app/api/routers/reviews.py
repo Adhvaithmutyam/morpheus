@@ -22,7 +22,8 @@ _STATUS_MAP = {"ACCEPT": "ACCEPTED", "REJECT": "REJECTED", "MARK_FOR_REVIEW": "R
 def _get_or_create_review(db: Session, analysis_id: str, user: User) -> Review:
     review = db.execute(
         select(Review).where(Review.analysis_id == analysis_id, Review.reviewer_id == user.id)
-    ).scalar_one_or_none()
+        .order_by(Review.created_at)
+    ).scalars().first()
     if not review:
         review = Review(analysis_id=analysis_id, reviewer_id=user.id, status="OPEN")
         db.add(review)
@@ -31,18 +32,22 @@ def _get_or_create_review(db: Session, analysis_id: str, user: User) -> Review:
 
 
 def _snapshot(db: Session, target_type: str, target_id: str) -> tuple[dict, list]:
-    if target_type != "recommendation":
-        return {}, []
-    rec = db.get(Recommendation, target_id)
-    if not rec:
-        return {}, []
-    ev_ids = [re.evidence_id for re in db.execute(
-        select(RecommendationEvidence).where(RecommendationEvidence.recommendation_id == rec.id)).scalars()]
-    evs = list(db.execute(select(Evidence).where(Evidence.id.in_(ev_ids))).scalars()) if ev_ids else []
-    ai = {"applicability_class": rec.applicability_class, "relevance": rec.relevance,
-          "confidence": rec.confidence, "rationale": rec.rationale, "standard_id": rec.standard_id}
-    snap = [{"id": e.id, "source_type": e.source_type, "text": e.text, "data_origin": e.data_origin} for e in evs]
-    return ai, snap
+    if target_type == "recommendation":
+        rec = db.get(Recommendation, target_id)
+        if not rec:
+            return {}, []
+        ev_ids = [re.evidence_id for re in db.execute(
+            select(RecommendationEvidence).where(RecommendationEvidence.recommendation_id == rec.id)).scalars()]
+        evs = list(db.execute(select(Evidence).where(Evidence.id.in_(ev_ids))).scalars()) if ev_ids else []
+        ai = {"applicability_class": rec.applicability_class, "relevance": rec.relevance,
+              "confidence": rec.confidence, "rationale": rec.rationale, "standard_id": rec.standard_id}
+        snap = [{"id": e.id, "source_type": e.source_type, "text": e.text, "data_origin": e.data_origin} for e in evs]
+        return ai, snap
+    elif target_type == "standard":
+        std = db.get(Standard, target_id)
+        ai = {"is_number": std.is_number, "title": std.title} if std else {}
+        return ai, []
+    return {}, []
 
 
 @router.post("/analyses/{analysis_id}/reviews/decisions", response_model=ReviewDecisionRead,
@@ -65,6 +70,13 @@ def record_decision(
     if payload.target_type == "recommendation":
         rec = db.get(Recommendation, payload.target_id)
         if rec:
+            rec.review_status = _STATUS_MAP.get(payload.decision, rec.review_status)
+    elif payload.target_type == "standard":
+        recs = db.execute(select(Recommendation).where(
+            Recommendation.analysis_id == analysis_id,
+            Recommendation.standard_id == payload.target_id,
+        )).scalars().all()
+        for rec in recs:
             rec.review_status = _STATUS_MAP.get(payload.decision, rec.review_status)
     db.commit()
     return decision

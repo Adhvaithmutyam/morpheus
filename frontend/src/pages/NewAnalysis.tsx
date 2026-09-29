@@ -40,6 +40,25 @@ export function NewAnalysisPage() {
         subtitle="Upload a procurement specification (PDF, DOCX or TXT) to check it against Indian Standards."
       />
 
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary-soft/40 p-3.5 text-xs text-ink">
+        <div className="flex items-center gap-2.5">
+          <span className="text-xl">📄</span>
+          <div>
+            <div className="font-semibold text-primary">Need a test specification?</div>
+            <div className="text-muted">Download <strong>tender_60pct_readiness.pdf</strong> to test a 60% readiness score.</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <a
+            href="/tender_60pct_readiness.pdf"
+            download="tender_60pct_readiness.pdf"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 font-semibold text-white shadow-xs hover:bg-primary/90 transition-colors"
+          >
+            <span>↓</span> Download PDF
+          </a>
+        </div>
+      </div>
+
       <Card className="p-6">
         <div className="mb-4 inline-flex rounded-lg border border-line p-0.5">
           <button onClick={() => setMode("file")}

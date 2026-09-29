@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { AnalysisHeader } from "@/components/AnalysisHeader";
+import { apiError } from "@/lib/api";
 import {
   Button, Card, EmptyState, FilterChip, MatchBar, Skeleton, StatusChip, Tooltip,
 } from "@/components/ui";
@@ -28,14 +29,24 @@ export function StandardsPage() {
     return s;
   }, [qco]);
 
-  // Best recommendation per standard, sorted by relevance.
+  // Aggregate recommendations per standard so an action on a standard covers all its occurrences.
   const cards = useMemo(() => {
-    const best = new Map<string, Recommendation>();
+    const byStd = new Map<string, Recommendation[]>();
     for (const r of recs ?? []) {
-      const cur = best.get(r.standard.id);
-      if (!cur || r.relevance_score > cur.relevance_score) best.set(r.standard.id, r);
+      const list = byStd.get(r.standard.id) ?? [];
+      list.push(r);
+      byStd.set(r.standard.id, list);
     }
-    return [...best.values()].sort((a, b) => b.relevance_score - a.relevance_score);
+    const result: Recommendation[] = [];
+    for (const list of byStd.values()) {
+      const best = list.reduce((a, b) => (b.relevance_score > a.relevance_score ? b : a));
+      const hasAccepted = list.some((r) => r.review_status === "ACCEPTED");
+      const hasReview = list.some((r) => r.review_status === "REVIEW");
+      const hasRejected = list.every((r) => r.review_status === "REJECTED");
+      const status = hasAccepted ? "ACCEPTED" : hasReview ? "REVIEW" : hasRejected ? "REJECTED" : best.review_status;
+      result.push({ ...best, review_status: status });
+    }
+    return result.sort((a, b) => b.relevance_score - a.relevance_score);
   }, [recs]);
 
   const counts = useMemo(() => ({
@@ -52,11 +63,18 @@ export function StandardsPage() {
     return cards;
   }, [cards, filter, qcoMandatory]);
 
+  function handleDecide(standardId: string, decision: string, reason?: string) {
+    decide.mutate({ target_type: "standard", target_id: standardId, decision, reason });
+  }
+
   function bulkAccept(which: "high" | "qco") {
-    const target = which === "qco"
+    const targetCards = which === "qco"
       ? cards.filter((r) => qcoMandatory.has(r.standard.is_number) && r.review_status !== "ACCEPTED")
       : cards.filter((r) => r.relevance === "HIGH" && r.review_status !== "ACCEPTED");
-    target.forEach((r) => decide.mutate({ target_type: "recommendation", target_id: r.id, decision: "ACCEPT", reason: `Bulk accept (${which})` }));
+
+    targetCards.forEach((card) => {
+      handleDecide(card.standard.id, "ACCEPT", `Bulk accept (${which})`);
+    });
   }
 
   function exportCsv() {
@@ -77,6 +95,12 @@ export function StandardsPage() {
     <div>
       <AnalysisHeader id={id} section="Standards Review" />
 
+      {decide.isError && (
+        <div className="mb-4 rounded-xl border border-danger/30 bg-danger-soft p-3 text-sm text-danger">
+          Failed to save decision: {apiError(decide.error)}
+        </div>
+      )}
+
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
           <FilterChip active={filter === "all"} onClick={() => setFilter("all")} count={counts.all}>All</FilterChip>
@@ -86,8 +110,8 @@ export function StandardsPage() {
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" className="text-xs" onClick={exportCsv}>Export CSV</Button>
-          <Button variant="secondary" className="text-xs" onClick={() => bulkAccept("qco")} disabled={counts.qco === 0}>Accept all QCO</Button>
-          <Button variant="secondary" className="text-xs" onClick={() => bulkAccept("high")}>Accept all high-relevance</Button>
+          <Button variant="secondary" className="text-xs" onClick={() => bulkAccept("qco")} disabled={counts.qco === 0 || decide.isPending}>Accept all QCO</Button>
+          <Button variant="secondary" className="text-xs" onClick={() => bulkAccept("high")} disabled={decide.isPending}>Accept all high-relevance</Button>
         </div>
       </div>
 
@@ -98,8 +122,13 @@ export function StandardsPage() {
       ) : (
         <div className="space-y-3">
           {shown.map((r) => (
-            <StandardCard key={r.id} rec={r} mandatory={qcoMandatory.has(r.standard.is_number)}
-              onDecide={(decision, reason) => decide.mutate({ target_type: "recommendation", target_id: r.id, decision, reason })} />
+            <StandardCard
+              key={r.standard.id}
+              rec={r}
+              mandatory={qcoMandatory.has(r.standard.is_number)}
+              isPending={decide.isPending}
+              onDecide={(decision, reason) => handleDecide(r.standard.id, decision, reason)}
+            />
           ))}
         </div>
       )}
@@ -107,12 +136,14 @@ export function StandardsPage() {
   );
 }
 
-function StandardCard({ rec, mandatory, onDecide }: {
-  rec: Recommendation; mandatory: boolean; onDecide: (decision: string, reason?: string) => void;
+function StandardCard({ rec, mandatory, isPending = false, onDecide }: {
+  rec: Recommendation; mandatory: boolean; isPending?: boolean; onDecide: (decision: string, reason?: string) => void;
 }) {
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
   const snippet = rec.evidence?.[0]?.text;
+  const isAccepted = rec.review_status === "ACCEPTED";
+  const isRejected = rec.review_status === "REJECTED";
   return (
     <Card className={`p-4 ${mandatory ? "ring-1 ring-danger/30" : ""}`}>
       <div className="flex flex-wrap items-start gap-3">
@@ -177,15 +208,41 @@ function StandardCard({ rec, mandatory, onDecide }: {
           <input autoFocus value={reason} onChange={(e) => setReason(e.target.value)}
             placeholder="Reason for rejecting (recorded for audit)…"
             className="min-w-[14rem] flex-1 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-primary" />
-          <Button variant="danger" disabled={!reason.trim()}
+          <Button variant="danger" disabled={!reason.trim() || isPending}
             onClick={() => { onDecide("REJECT", reason.trim()); setRejecting(false); setReason(""); }}>Confirm reject</Button>
           <Button variant="secondary" onClick={() => setRejecting(false)}>Cancel</Button>
         </div>
       ) : (
-        <div className="mt-3 flex gap-2 border-t border-line pt-3">
-          <Button className="px-3 py-1.5 text-xs" onClick={() => onDecide("ACCEPT", "Accepted")}>Accept</Button>
-          <Button variant="danger" className="px-3 py-1.5 text-xs" onClick={() => setRejecting(true)}>Reject…</Button>
-          <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => onDecide("MARK_FOR_REVIEW", "Flagged for review")}>Flag for review</Button>
+        <div className="mt-3 flex items-center gap-2 border-t border-line pt-3">
+          {isAccepted ? (
+            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800">
+              ✓ Accepted
+            </span>
+          ) : (
+            <Button
+              className="px-3 py-1.5 text-xs"
+              disabled={isPending}
+              onClick={() => onDecide("ACCEPT", "Accepted")}
+            >
+              {isPending ? "Accepting…" : "Accept"}
+            </Button>
+          )}
+          <Button
+            variant="danger"
+            className="px-3 py-1.5 text-xs"
+            disabled={isRejected || isPending}
+            onClick={() => setRejecting(true)}
+          >
+            {isRejected ? "Rejected" : "Reject…"}
+          </Button>
+          <Button
+            variant="secondary"
+            className="px-3 py-1.5 text-xs"
+            disabled={rec.review_status === "REVIEW" || isPending}
+            onClick={() => onDecide("MARK_FOR_REVIEW", "Flagged for review")}
+          >
+            {rec.review_status === "REVIEW" ? "Flagged" : "Flag for review"}
+          </Button>
         </div>
       )}
     </Card>

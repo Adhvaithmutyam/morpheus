@@ -639,7 +639,7 @@ The included standards/QCO/certification demo records are labelled **DEMO_SYNTHE
 
 ### Repository
 
-https://github.com/sanjivinsmoke95/morpheus
+https://github.com/Adhvaithmutyam/morpheus
 
 ### Local demo
 

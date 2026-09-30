@@ -17,5 +17,7 @@ dist/
 *.db
 storage/
 
-# OS
+# OS & Media
 .DS_Store
+*.mov
+*.mp4

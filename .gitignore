@@ -21,3 +21,4 @@ storage/
 .DS_Store
 *.mov
 *.mp4
+.claude/
